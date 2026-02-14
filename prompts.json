@@ -105,5 +105,19 @@
       "1"
     ],
     "filePath": "8____senaryo_yaz_m_kurallar_.md"
+  },
+  {
+    "id": "9",
+    "title": "🧍 Hiper-Gerçekçi İnsan Figürü Kuralları",
+    "tags": [
+      "rules",
+      "human",
+      "photorealistic",
+      "anatomy"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "9____hiper_ger_ek_i_insan_fig_r_kurallar_.md"
   }
 ]
