@@ -70,5 +70,18 @@
       "kurallar"
     ],
     "filePath": "prompts/8.txt"
+  },
+  {
+    "id": "109",
+    "title": "Ultra Detaylı Karakter Oluşturucu",
+    "tags": [
+      "character",
+      "creative-writing",
+      "visual-arts",
+      "midjourney",
+      "stable-diffusion",
+      "detail-oriented"
+    ],
+    "filePath": "prompts/109.txt"
   }
 ]
