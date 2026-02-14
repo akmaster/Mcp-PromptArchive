@@ -156,20 +156,6 @@ app.get("/sse", async (req, res) => {
                     }
                 },
                 {
-                    name: "add_prompt",
-                    description: "SADECE YENİ bir prompt şablonunu veritabanına/dosyaya KAYDETMEK içindir. Kullanıcıya cevap üretmek veya hikaye yazmak için BU ARACI KULLANMAYIN. Sadece kullanıcı 'bunu kaydet', 'şablon olarak ekle' dediğinde kullanın.",
-                    inputSchema: {
-                        type: "object",
-                        properties: {
-                            title: { type: "string", description: "Prompt başlığı" },
-                            content: { type: "string", description: "Prompt içeriği (şablon metni)" },
-                            tags: { type: "array", items: { type: "string" }, description: "Etiketler" },
-                            subPrompts: { type: "array", items: { type: "string" }, description: "Alt prompt ID'leri" }
-                        },
-                        required: ["title", "content"]
-                    }
-                },
-                {
                     name: "list_logs",
                     description: "Sunucudaki kullanıcı aktivite log dosyalarını listeler (Dosya adlarını döner).",
                     inputSchema: { type: "object", properties: {} }
@@ -268,47 +254,6 @@ app.get("/sse", async (req, res) => {
             }
 
             return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-        }
-
-        if (name === "add_prompt") {
-            const { title, content, tags, subPrompts } = (args as any) || {};
-            if (!title || !content) {
-                return { content: [{ type: "text", text: "Başlık ve içerik zorunludur" }], isError: true };
-            }
-
-            const newId = (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1");
-
-            // Dosya ismi oluştur: ID_Title.md (Title'ı sanitize et)
-            const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            const fileName = `${newId}_${sanitizedTitle}.md`;
-            const filePath = path.join(PROMPTS_DIR, fileName);
-
-            // İçeriği dosyaya yaz
-            try {
-                fs.writeFileSync(filePath, content, "utf-8");
-            } catch (err) {
-                console.error("Dosya yazma hatası:", err);
-                return { content: [{ type: "text", text: "Dosya oluşturulamadı: " + err }], isError: true };
-            }
-
-            const newPrompt: Prompt = {
-                id: newId,
-                title,
-                tags: tags || [],
-                subPrompts: subPrompts || [],
-                filePath: fileName // Sadece dosya adını saklıyoruz, path join ile bulunur
-                // content alanını bilerek boş bırakıyoruz veya opsiyonel yapıyoruz
-            };
-
-            const updatedPrompts = [...prompts, newPrompt];
-            savePrompts(updatedPrompts);
-
-            return {
-                content: [{
-                    type: "text",
-                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}, Dosya: ${fileName}`
-                }]
-            };
         }
 
         if (name === "list_logs") {
