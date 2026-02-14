@@ -17,10 +17,10 @@ const __dirname = path.dirname(__filename);
 interface Prompt {
     id: string;
     title: string;
-    content?: string;
+    content: string; // Artık zorunlu ve ana veri kaynağı
     tags: string[];
     subPrompts?: string[]; // Referans verilen diğer prompt ID'leri
-    filePath?: string;
+    filePath?: string; // Geriye dönük uyumluluk veya referans için tutulabilir, ama artık kullanılmıyor
 }
 
 // Veri dosyası konumu: Çalıştırılan komutun dizininden bağımsız olarak, 
@@ -97,7 +97,7 @@ app.get("/sse", async (req, res) => {
 
     // Araçları Tanımla (Low-level API)
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        const prompts = loadPrompts();
+        // const prompts = loadPrompts(); // Gerekirse burada yükle, ama her tool call'da yüklemek daha güvenli olabilir
         return {
             tools: [
                 {
@@ -150,43 +150,15 @@ app.get("/sse", async (req, res) => {
             const prompt = prompts.find(p => p.id === id);
             if (!prompt) return { content: [{ type: "text", text: "Prompt bulunamadı" }], isError: true };
 
-            // İçeriği dosyadan oku
-            if (prompt.filePath) {
-                try {
-                    // PROMPTS_PATH is resolved to absolute path, so we use its directory base.
-                    const promptsDir = path.dirname(PROMPTS_PATH);
-                    const fullPath = path.join(promptsDir, prompt.filePath);
+            // Prompt içeriği artık direkt prompt objesinde (JSON'dan geldi)
+            // Dosya okuma işlemi kaldırıldı.
 
-                    console.log(`[DEBUG] get_prompt: ID=${id}, filePath=${prompt.filePath}, resolvedFullPath=${fullPath}`);
-
-                    if (fs.existsSync(fullPath)) {
-                        prompt.content = fs.readFileSync(fullPath, "utf-8");
-                    } else {
-                        console.error(`[ERROR] File not found: ${fullPath}`);
-                        prompt.content = `(Dosya bulunamadı: ${fullPath})`;
-                    }
-                } catch (e) {
-                    console.error(`[ERROR] Exception reading file:`, e);
-                    prompt.content = `(Dosya okuma hatası: ${e})`;
-                }
-            }
-
-            // Alt promptları getir (varsa) ve içeriklerini yükle
+            // Alt promptları getir (varsa)
             let result: any = { ...prompt };
             if (prompt.subPrompts && prompt.subPrompts.length > 0) {
                 result.resolvedSubPrompts = prompt.subPrompts.map((subId: string) => {
                     const subPrompt = prompts.find(p => p.id === subId);
                     if (subPrompt) {
-                        // Alt promptun içeriğini de yükle
-                        if (subPrompt.filePath) {
-                            try {
-                                const promptsDir = path.dirname(PROMPTS_PATH);
-                                const subFullPath = path.join(promptsDir, subPrompt.filePath);
-                                if (fs.existsSync(subFullPath)) {
-                                    subPrompt.content = fs.readFileSync(subFullPath, "utf-8");
-                                }
-                            } catch (e) { }
-                        }
                         return subPrompt;
                     }
                     return { id: subId, error: "Alt prompt bulunamadı" };
@@ -203,31 +175,15 @@ app.get("/sse", async (req, res) => {
             }
 
             const newId = (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1");
-            const filename = `${newId}.txt`;
-            const relativePath = `prompts/${filename}`;
-            const promptsBaseDir = path.dirname(PROMPTS_PATH);
-            const fullPath = path.join(promptsBaseDir, relativePath);
 
-            // Klasör var mı kontrol et
-            const promptsDir = path.dirname(fullPath);
-            if (!fs.existsSync(promptsDir)) {
-                fs.mkdirSync(promptsDir, { recursive: true });
-            }
-
-            // İçeriği dosyaya yaz
-            try {
-                fs.writeFileSync(fullPath, content, "utf-8");
-            } catch (error) {
-                return { content: [{ type: "text", text: `Dosya yazma hatası: ${error}` }], isError: true };
-            }
+            // Dosya oluşturma işlemi kaldırıldı.
 
             const newPrompt: Prompt = {
                 id: newId,
                 title,
-                // content JSON'a kaydedilmez
+                content, // Content direkt JSON objesine ekleniyor
                 tags: tags || [],
                 subPrompts: subPrompts || [],
-                filePath: relativePath
             };
 
             const updatedPrompts = [...prompts, newPrompt];
@@ -236,7 +192,7 @@ app.get("/sse", async (req, res) => {
             return {
                 content: [{
                     type: "text",
-                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}, Dosya: ${relativePath}`
+                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}`
                 }]
             };
         }
