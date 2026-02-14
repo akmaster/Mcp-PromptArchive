@@ -168,6 +168,20 @@ app.get("/sse", async (req, res) => {
                         },
                         required: ["title", "content"]
                     }
+                },
+                {
+                    name: "list_logs",
+                    description: "Sunucudaki kullanıcı aktivite log dosyalarını listeler (Dosya adlarını döner).",
+                    inputSchema: { type: "object", properties: {} }
+                },
+                {
+                    name: "read_log",
+                    description: "Belirtilen log dosyasının içeriğini okur.",
+                    inputSchema: {
+                        type: "object",
+                        properties: { filename: { type: "string", description: "Okunacak log dosyasının adı (list_logs'dan gelen)" } },
+                        required: ["filename"]
+                    }
                 }
             ]
         };
@@ -295,6 +309,47 @@ app.get("/sse", async (req, res) => {
                     text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}, Dosya: ${fileName}`
                 }]
             };
+        }
+
+        if (name === "list_logs") {
+            try {
+                if (!fs.existsSync(LOGS_DIR)) {
+                    return { content: [{ type: "text", text: "Henüz hiç log yok." }] };
+                }
+                const files = fs.readdirSync(LOGS_DIR);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify(files, null, 2)
+                    }]
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Log listeleme hatası: ${err}` }], isError: true };
+            }
+        }
+
+        if (name === "read_log") {
+            const { filename } = (args as any) || {};
+            if (!filename) return { content: [{ type: "text", text: "Dosya adı gerekli" }], isError: true };
+
+            // Güvenlik: Sadece LOGS_DIR içinden okumaya izin ver, path traversal önle
+            const cleanFilename = path.basename(filename);
+            const filePath = path.join(LOGS_DIR, cleanFilename);
+
+            try {
+                if (!fs.existsSync(filePath)) {
+                    return { content: [{ type: "text", text: "Log dosyası bulunamadı" }], isError: true };
+                }
+                const content = fs.readFileSync(filePath, "utf-8");
+                return {
+                    content: [{
+                        type: "text",
+                        text: content
+                    }]
+                };
+            } catch (err) {
+                return { content: [{ type: "text", text: `Log okuma hatası: ${err}` }], isError: true };
+            }
         }
 
         throw new Error(`Bilinmeyen araç: ${name}`);
