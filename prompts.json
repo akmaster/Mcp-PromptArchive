@@ -1,0 +1,20 @@
+[
+    {
+        "id": "1",
+        "title": "Simple Chatbot",
+        "content": "You are a helpful assistant.",
+        "tags": [
+            "chat",
+            "basic"
+        ]
+    },
+    {
+        "id": "2",
+        "title": "Code Reviewer",
+        "content": "You are an expert software engineer. Review the following code.",
+        "tags": [
+            "code",
+            "programming"
+        ]
+    }
+]
