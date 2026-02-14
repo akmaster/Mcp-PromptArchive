@@ -4,10 +4,6 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Prompt veri tipi
 interface Prompt {
@@ -33,78 +29,86 @@ function loadPrompts(): Prompt[] {
     }
 }
 
-// Sunucu kurulumu
-const server = new McpServer({
-    name: "Prompt Archive",
-    version: "1.0.0",
-});
+// Her bağlantı için yeni bir McpServer oluşturan fabrika fonksiyonu
+function createServer(): McpServer {
+    const server = new McpServer({
+        name: "Prompt Archive",
+        version: "1.0.0",
+    });
 
-// Araç: Promptları listele
-server.tool(
-    "list_prompts",
-    {},
-    async () => {
-        const prompts = loadPrompts();
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(prompts.map(p => ({ id: p.id, title: p.title, tags: p.tags })), null, 2),
-                },
-            ],
-        };
-    }
-);
-
-// Araç: ID ile prompt getir
-server.tool(
-    "get_prompt",
-    { id: { type: "string" } as any },
-    async ({ id }: { id: string }) => {
-        const prompts = loadPrompts();
-        const prompt = prompts.find(p => p.id === id);
-        if (!prompt) {
+    // Araç: Promptları listele
+    server.tool(
+        "list_prompts",
+        {},
+        async () => {
+            const prompts = loadPrompts();
             return {
-                content: [{ type: "text", text: `Prompt with ID ${id} not found.` }],
-                isError: true,
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(
+                            prompts.map((p) => ({ id: p.id, title: p.title, tags: p.tags })),
+                            null,
+                            2
+                        ),
+                    },
+                ],
             };
         }
-        return {
-            content: [{ type: "text", text: JSON.stringify(prompt, null, 2) }],
-        };
-    }
-);
+    );
+
+    // Araç: ID ile prompt getir
+    server.tool(
+        "get_prompt",
+        { id: { type: "string" } as any },
+        async ({ id }: { id: string }) => {
+            const prompts = loadPrompts();
+            const prompt = prompts.find((p) => p.id === id);
+            if (!prompt) {
+                return {
+                    content: [
+                        { type: "text", text: `Prompt with ID ${id} not found.` },
+                    ],
+                    isError: true,
+                };
+            }
+            return {
+                content: [{ type: "text", text: JSON.stringify(prompt, null, 2) }],
+            };
+        }
+    );
+
+    return server;
+}
 
 const app = express();
 app.use(cors());
-// Body parser ekle (MCP SDK bazen kendi halleder ama express için gerekebilir, 
-// ancak SSEServerTransport handlePostMessage stream kullanabilir. Şimdilik express.json() eklemeyelim, çakışabilir)
 
-// Transport yönetimi
+// Transport yönetimi: sessionId -> transport eşleşmesi
 const transports = new Map<string, SSEServerTransport>();
 
-// SSE Endpoint'i
-app.get("/sse", async (req, res) => {
+// Health check endpoint
+app.get("/", (_req, res) => {
+    res.json({ status: "ok", name: "Prompt Archive MCP Server" });
+});
+
+// SSE Endpoint — her bağlantıda yeni bir McpServer oluşturulur
+app.get("/sse", async (_req, res) => {
     const transport = new SSEServerTransport("/messages", res);
-
-    // session ID'yi transport oluşturunca alabiliriz (SDK implementasyonuna bağlı olarak _sessionId veya uuid olabilir)
-    // SSEServerTransport'un sessionId public property'si olmayabilir.
-    // Bu durumda manuel bir ID atayıp transportu saklayamayız kolayca.
-    // Ancak, SSEServerTransport `sessionId` getter'ına sahip.
-
-    // @ts-ignore - sessionId property'si var kabul ediyoruz
     const sessionId = transport.sessionId;
 
     transports.set(sessionId, transport);
+    console.log(`New session started: ${sessionId}`);
 
     // Bağlantı kapandığında temizle
-    res.on('close', () => {
+    res.on("close", () => {
         transports.delete(sessionId);
         console.log(`Session closed: ${sessionId}`);
     });
 
+    // Her oturum için bağımsız bir McpServer oluştur ve bağla
+    const server = createServer();
     await server.connect(transport);
-    console.log(`New session started: ${sessionId}`);
 });
 
 // Mesaj alma endpoint'i
@@ -121,7 +125,6 @@ app.post("/messages", async (req, res) => {
         return;
     }
 
-    // Handle the message
     await transport.handlePostMessage(req, res);
 });
 
