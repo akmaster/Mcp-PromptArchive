@@ -25,12 +25,27 @@ interface Prompt {
 
 // Veri dosyası konumu: Çalıştırılan komutun dizininden bağımsız olarak, 
 // projenin kök dizinindeki (src veya dist'in bir üstü) prompts.json'ı hedefler.
-const PROMPTS_PATH = process.env.PROMPTS_PATH || path.join(__dirname, "..", "prompts.json");
+let PROMPTS_PATH = process.env.PROMPTS_PATH || path.join(__dirname, "..", "prompts.json");
+
+// Eğer varsayılan yol bulunamazsa, CWD (Current Working Directory) üzerinden dene
+if (!process.env.PROMPTS_PATH && !fs.existsSync(PROMPTS_PATH)) {
+    const cwdPath = path.join(process.cwd(), "prompts.json");
+    if (fs.existsSync(cwdPath)) {
+        PROMPTS_PATH = cwdPath;
+    }
+}
+
+// Mutlak yol olduğundan emin ol
+PROMPTS_PATH = path.resolve(PROMPTS_PATH);
+
+console.log(`[INIT] Prompts dosyası yolu: ${PROMPTS_PATH}`);
 
 function loadPrompts(): Prompt[] {
     try {
         if (!fs.existsSync(PROMPTS_PATH)) {
-            console.log(`[${new Date().toISOString()}] prompts.json bulunamadı: ${PROMPTS_PATH}`);
+            console.error(`[ERROR] prompts.json bulunamadı: ${PROMPTS_PATH}`);
+            console.error(`[DEBUG] __dirname: ${__dirname}`);
+            console.error(`[DEBUG] process.cwd(): ${process.cwd()}`);
             return [];
         }
         return JSON.parse(fs.readFileSync(PROMPTS_PATH, "utf-8"));
@@ -138,15 +153,11 @@ app.get("/sse", async (req, res) => {
             // İçeriği dosyadan oku
             if (prompt.filePath) {
                 try {
+                    // PROMPTS_PATH is resolved to absolute path, so we use its directory base.
                     const promptsDir = path.dirname(PROMPTS_PATH);
-                    // prompt.filePath is relative (e.g. "prompts/110.txt")
-                    // If we join promptsDir (e.g. ".../") and "prompts/110.txt", we get ".../prompts/110.txt"
-                    // IF promptsDir is the root.
-                    // PROMPTS_PATH = ".../prompts.json". promptsDir = ".../".
-                    // So path.join(promptsDir, prompt.filePath) is correct.
                     const fullPath = path.join(promptsDir, prompt.filePath);
 
-                    console.log(`[DEBUG] get_prompt: ID=${id}, filePath=${prompt.filePath}, fullPath=${fullPath}`);
+                    console.log(`[DEBUG] get_prompt: ID=${id}, filePath=${prompt.filePath}, resolvedFullPath=${fullPath}`);
 
                     if (fs.existsSync(fullPath)) {
                         prompt.content = fs.readFileSync(fullPath, "utf-8");
