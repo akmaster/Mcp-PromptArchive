@@ -83,5 +83,18 @@
       "detail-oriented"
     ],
     "filePath": "prompts/109.txt"
+  },
+  {
+    "id": "110",
+    "title": "Ultra Detaylı Kıyafet ve Karakter Tasarımcısı",
+    "tags": [
+      "moda",
+      "kıyafet",
+      "tasarım",
+      "stili",
+      "karakter-giydirme",
+      "prompt-engineering"
+    ],
+    "filePath": "prompts/110.txt"
   }
 ]
