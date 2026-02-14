@@ -1,1 +1,109 @@
-[]
+[
+  {
+    "id": "1",
+    "title": "🎬 Ana Kural Merkezi (Hub)",
+    "tags": [
+      "rules",
+      "core",
+      "hub"
+    ],
+    "subPrompts": [],
+    "filePath": "1____ana_kural_merkezi__hub_.md"
+  },
+  {
+    "id": "2",
+    "title": "🎧 ASMR / Satisfying Video Kuralları",
+    "tags": [
+      "rules",
+      "asmr",
+      "satisfying"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "2____asmr___satisfying_video_kurallar_.md"
+  },
+  {
+    "id": "3",
+    "title": "🎬 Çizgi Film Kuralları (Animasyon Projeler)",
+    "tags": [
+      "rules",
+      "cartoon",
+      "animation",
+      "kids"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "3_____izgi_film_kurallar___animasyon_projeler_.md"
+  },
+  {
+    "id": "4",
+    "title": "😂 Fıkra Animasyonu Kuralları",
+    "tags": [
+      "rules",
+      "joke",
+      "comedy",
+      "sketch"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "4____f_kra_animasyonu_kurallar_.md"
+  },
+  {
+    "id": "5",
+    "title": "🎬 Film & Fragman Kuralları (Gerçekçi Projeler)",
+    "tags": [
+      "rules",
+      "film",
+      "cinema",
+      "movie"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "5____film___fragman_kurallar___ger_ek_i_projeler_.md"
+  },
+  {
+    "id": "6",
+    "title": "🎨 Karikatür ve Çizgi Roman Kuralları",
+    "tags": [
+      "rules",
+      "caricature",
+      "comic",
+      "humor"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "6____karikat_r_ve__izgi_roman_kurallar_.md"
+  },
+  {
+    "id": "7",
+    "title": "🎵 Müzik Klibi Kuralları",
+    "tags": [
+      "rules",
+      "clip",
+      "music_video",
+      "music"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "7____m_zik_klibi_kurallar_.md"
+  },
+  {
+    "id": "8",
+    "title": "📜 Senaryo Yazım Kuralları",
+    "tags": [
+      "rules",
+      "scenario",
+      "scriptwriting"
+    ],
+    "subPrompts": [
+      "1"
+    ],
+    "filePath": "8____senaryo_yaz_m_kurallar_.md"
+  }
+]
