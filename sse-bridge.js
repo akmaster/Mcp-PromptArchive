@@ -46,12 +46,12 @@ async function main() {
 
     // Bağlantıları başlat
     try {
-        console.log(`[${new Date().toISOString()}] Bağlantı başlatılıyor: ${remoteUrl}`);
+        console.error(`[${new Date().toISOString()}] Bağlantı başlatılıyor: ${remoteUrl}`);
         await sseTransport.start();
-        console.log(`[${new Date().toISOString()}] SSE bağlantısı başarılı.`);
+        console.error(`[${new Date().toISOString()}] SSE bağlantısı başarılı.`);
 
         await stdioTransport.start();
-        console.log(`[${new Date().toISOString()}] Stdio (Local) hazır. Bridge aktif.`);
+        console.error(`[${new Date().toISOString()}] Stdio (Local) hazır. Bridge aktif.`);
     } catch (error) {
         console.error(`[${new Date().toISOString()}] Bridge başlatılamadı:`, error);
         process.exit(1); // Sadece başlangıçta hata varsa çıkış yap
