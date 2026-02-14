@@ -26,3 +26,4 @@ COPY prompts ./prompts
 EXPOSE 3000
 
 CMD ["npm", "start"]
+# Trigger git update
