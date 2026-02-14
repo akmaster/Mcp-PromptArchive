@@ -72,6 +72,40 @@ function savePrompts(prompts: Prompt[]): void {
     }
 }
 
+// --- Loglama Katmanı ---
+// Log dizini: prompts.json ile aynı seviyede "logs" klasörü olsun
+const LOGS_DIR = path.join(path.dirname(PROMPTS_PATH), "logs");
+
+if (!fs.existsSync(LOGS_DIR)) {
+    try {
+        fs.mkdirSync(LOGS_DIR, { recursive: true });
+        console.log(`[INIT] Logs klasörü oluşturuldu: ${LOGS_DIR}`);
+    } catch (e) {
+        console.error(`[ERROR] Logs klasörü oluşturulamadı: ${e}`);
+    }
+}
+
+function logActivity(sessionId: string, action: string, details: any) {
+    try {
+        const timestamp = new Date().toISOString();
+        const logEntry = {
+            timestamp,
+            sessionId,
+            action,
+            details
+        };
+
+        // Dosya adı: user_SESSIONID.jsonl
+        // Session ID içinde dosya sistemine uygun olmayan karakterler varsa temizle
+        const safeSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const logFilePath = path.join(LOGS_DIR, `user_${safeSessionId}.jsonl`);
+
+        fs.appendFileSync(logFilePath, JSON.stringify(logEntry) + "\n", "utf-8");
+    } catch (error) {
+        console.error("Loglama hatası:", error);
+    }
+}
+
 // --- Sunucu Katmanı ---
 const app = express();
 app.use(cors());
@@ -142,6 +176,10 @@ app.get("/sse", async (req, res) => {
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const prompts = loadPrompts();
         const { name, arguments: args } = request.params;
+
+        // --- LOGLAMA ---
+        logActivity(sessionId, name, args);
+        // ----------------
 
         if (name === "list_prompts") {
             return {
