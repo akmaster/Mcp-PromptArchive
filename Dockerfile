@@ -21,6 +21,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy data file (if you want to embed it)
 COPY prompts.json ./prompts.json
+COPY prompts ./prompts
 
 EXPOSE 3000
 
