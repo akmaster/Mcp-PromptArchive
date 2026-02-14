@@ -17,9 +17,10 @@ const __dirname = path.dirname(__filename);
 interface Prompt {
     id: string;
     title: string;
-    content: string;
+    content?: string;
     tags: string[];
     subPrompts?: string[]; // Referans verilen diğer prompt ID'leri
+    filePath?: string;
 }
 
 // Veri dosyası konumu: Çalıştırılan komutun dizininden bağımsız olarak, 
@@ -134,12 +135,38 @@ app.get("/sse", async (req, res) => {
             const prompt = prompts.find(p => p.id === id);
             if (!prompt) return { content: [{ type: "text", text: "Prompt bulunamadı" }], isError: true };
 
-            // Alt promptları getir (varsa)
+            // İçeriği dosyadan oku
+            if (prompt.filePath) {
+                try {
+                    const fullPath = path.join(__dirname, "..", prompt.filePath);
+                    if (fs.existsSync(fullPath)) {
+                        prompt.content = fs.readFileSync(fullPath, "utf-8");
+                    } else {
+                        prompt.content = "(Dosya bulunamadı)";
+                    }
+                } catch (e) {
+                    prompt.content = `(Dosya okuma hatası: ${e})`;
+                }
+            }
+
+            // Alt promptları getir (varsa) ve içeriklerini yükle
             let result: any = { ...prompt };
             if (prompt.subPrompts && prompt.subPrompts.length > 0) {
                 result.resolvedSubPrompts = prompt.subPrompts.map((subId: string) => {
                     const subPrompt = prompts.find(p => p.id === subId);
-                    return subPrompt || { id: subId, error: "Alt prompt bulunamadı" };
+                    if (subPrompt) {
+                        // Alt promptun içeriğini de yükle
+                        if (subPrompt.filePath) {
+                            try {
+                                const subFullPath = path.join(__dirname, "..", subPrompt.filePath);
+                                if (fs.existsSync(subFullPath)) {
+                                    subPrompt.content = fs.readFileSync(subFullPath, "utf-8");
+                                }
+                            } catch (e) { }
+                        }
+                        return subPrompt;
+                    }
+                    return { id: subId, error: "Alt prompt bulunamadı" };
                 });
             }
 
@@ -152,12 +179,31 @@ app.get("/sse", async (req, res) => {
                 return { content: [{ type: "text", text: "Başlık ve içerik zorunludur" }], isError: true };
             }
 
+            const newId = (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1");
+            const filename = `${newId}.txt`;
+            const relativePath = `prompts/${filename}`;
+            const fullPath = path.join(__dirname, "..", relativePath);
+
+            // Klasör var mı kontrol et
+            const promptsDir = path.join(__dirname, "..", "prompts");
+            if (!fs.existsSync(promptsDir)) {
+                fs.mkdirSync(promptsDir);
+            }
+
+            // İçeriği dosyaya yaz
+            try {
+                fs.writeFileSync(fullPath, content, "utf-8");
+            } catch (error) {
+                return { content: [{ type: "text", text: `Dosya yazma hatası: ${error}` }], isError: true };
+            }
+
             const newPrompt: Prompt = {
-                id: (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1"),
+                id: newId,
                 title,
-                content,
+                // content JSON'a kaydedilmez
                 tags: tags || [],
-                subPrompts: subPrompts || []
+                subPrompts: subPrompts || [],
+                filePath: relativePath
             };
 
             const updatedPrompts = [...prompts, newPrompt];
@@ -166,7 +212,7 @@ app.get("/sse", async (req, res) => {
             return {
                 content: [{
                     type: "text",
-                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}`
+                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}, Dosya: ${relativePath}`
                 }]
             };
         }
