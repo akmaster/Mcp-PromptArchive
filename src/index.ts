@@ -138,13 +138,24 @@ app.get("/sse", async (req, res) => {
             // İçeriği dosyadan oku
             if (prompt.filePath) {
                 try {
-                    const fullPath = path.join(__dirname, "..", prompt.filePath);
+                    const promptsDir = path.dirname(PROMPTS_PATH);
+                    // prompt.filePath is relative (e.g. "prompts/110.txt")
+                    // If we join promptsDir (e.g. ".../") and "prompts/110.txt", we get ".../prompts/110.txt"
+                    // IF promptsDir is the root.
+                    // PROMPTS_PATH = ".../prompts.json". promptsDir = ".../".
+                    // So path.join(promptsDir, prompt.filePath) is correct.
+                    const fullPath = path.join(promptsDir, prompt.filePath);
+
+                    console.log(`[DEBUG] get_prompt: ID=${id}, filePath=${prompt.filePath}, fullPath=${fullPath}`);
+
                     if (fs.existsSync(fullPath)) {
                         prompt.content = fs.readFileSync(fullPath, "utf-8");
                     } else {
-                        prompt.content = "(Dosya bulunamadı)";
+                        console.error(`[ERROR] File not found: ${fullPath}`);
+                        prompt.content = `(Dosya bulunamadı: ${fullPath})`;
                     }
                 } catch (e) {
+                    console.error(`[ERROR] Exception reading file:`, e);
                     prompt.content = `(Dosya okuma hatası: ${e})`;
                 }
             }
@@ -158,7 +169,8 @@ app.get("/sse", async (req, res) => {
                         // Alt promptun içeriğini de yükle
                         if (subPrompt.filePath) {
                             try {
-                                const subFullPath = path.join(__dirname, "..", subPrompt.filePath);
+                                const promptsDir = path.dirname(PROMPTS_PATH);
+                                const subFullPath = path.join(promptsDir, subPrompt.filePath);
                                 if (fs.existsSync(subFullPath)) {
                                     subPrompt.content = fs.readFileSync(subFullPath, "utf-8");
                                 }
@@ -182,12 +194,13 @@ app.get("/sse", async (req, res) => {
             const newId = (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1");
             const filename = `${newId}.txt`;
             const relativePath = `prompts/${filename}`;
-            const fullPath = path.join(__dirname, "..", relativePath);
+            const promptsBaseDir = path.dirname(PROMPTS_PATH);
+            const fullPath = path.join(promptsBaseDir, relativePath);
 
             // Klasör var mı kontrol et
-            const promptsDir = path.join(__dirname, "..", "prompts");
+            const promptsDir = path.dirname(fullPath);
             if (!fs.existsSync(promptsDir)) {
-                fs.mkdirSync(promptsDir);
+                fs.mkdirSync(promptsDir, { recursive: true });
             }
 
             // İçeriği dosyaya yaz
