@@ -17,35 +17,43 @@ const __dirname = path.dirname(__filename);
 interface Prompt {
     id: string;
     title: string;
-    content: string; // Artık zorunlu ve ana veri kaynağı
+    content?: string; // Artık opsiyonel, dosyadan yüklenebilir
     tags: string[];
     subPrompts?: string[]; // Referans verilen diğer prompt ID'leri
-    filePath?: string; // Geriye dönük uyumluluk veya referans için tutulabilir, ama artık kullanılmıyor
+    filePath?: string; // İçeriğin bulunduğu dosya yolu (prompts.json'a göre relatif veya mutlak)
 }
 
 // Veri dosyası konumu: Çalıştırılan komutun dizininden bağımsız olarak, 
 // projenin kök dizinindeki (src veya dist'in bir üstü) prompts.json'ı hedefler.
 let PROMPTS_PATH = process.env.PROMPTS_PATH || path.join(__dirname, "..", "prompts.json");
+// Prompts klasörü yolu
+let PROMPTS_DIR = path.join(path.dirname(PROMPTS_PATH), "prompts");
 
 // Eğer varsayılan yol bulunamazsa, CWD (Current Working Directory) üzerinden dene
 if (!process.env.PROMPTS_PATH && !fs.existsSync(PROMPTS_PATH)) {
     const cwdPath = path.join(process.cwd(), "prompts.json");
     if (fs.existsSync(cwdPath)) {
         PROMPTS_PATH = cwdPath;
+        PROMPTS_DIR = path.join(process.cwd(), "prompts");
     }
 }
 
 // Mutlak yol olduğundan emin ol
 PROMPTS_PATH = path.resolve(PROMPTS_PATH);
+PROMPTS_DIR = path.resolve(PROMPTS_DIR);
+
+// Prompts klasörünü oluştur
+if (!fs.existsSync(PROMPTS_DIR)) {
+    fs.mkdirSync(PROMPTS_DIR, { recursive: true });
+}
 
 console.log(`[INIT] Prompts dosyası yolu: ${PROMPTS_PATH}`);
+console.log(`[INIT] Prompts klasörü yolu: ${PROMPTS_DIR}`);
 
 function loadPrompts(): Prompt[] {
     try {
         if (!fs.existsSync(PROMPTS_PATH)) {
             console.error(`[ERROR] prompts.json bulunamadı: ${PROMPTS_PATH}`);
-            console.error(`[DEBUG] __dirname: ${__dirname}`);
-            console.error(`[DEBUG] process.cwd(): ${process.cwd()}`);
             return [];
         }
         return JSON.parse(fs.readFileSync(PROMPTS_PATH, "utf-8"));
@@ -77,7 +85,7 @@ app.get("/", (req, res) => {
         status: "ok",
         message: "Prompt Archive MCP Server is alive",
         timestamp: new Date().toISOString(),
-        version: "1.0.1"
+        version: "1.0.2"
     });
 });
 
@@ -91,13 +99,12 @@ app.get("/sse", async (req, res) => {
 
     // Her bağlantı için YENİ bir Server instance'ı (Protocol izolasyonu)
     const server = new Server(
-        { name: "prompt-archive-server", version: "1.0.1" },
+        { name: "prompt-archive-server", version: "1.0.2" },
         { capabilities: { tools: {} } }
     );
 
     // Araçları Tanımla (Low-level API)
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        // const prompts = loadPrompts(); // Gerekirse burada yükle, ama her tool call'da yüklemek daha güvenli olabilir
         return {
             tools: [
                 {
@@ -150,16 +157,34 @@ app.get("/sse", async (req, res) => {
             const prompt = prompts.find(p => p.id === id);
             if (!prompt) return { content: [{ type: "text", text: "Prompt bulunamadı" }], isError: true };
 
-            // Prompt içeriği artık direkt prompt objesinde (JSON'dan geldi)
-            // Dosya okuma işlemi kaldırıldı.
+            // İçerik yükleme: Önce dosyaya bak, yoksa content alanına bak
+            let finalContent = prompt.content || "";
+            if (prompt.filePath) {
+                try {
+                    // filePath relative ise PROMPTS_DIR ile birleştir, absolute ise direk kullan
+                    const absoluteFilePath = path.isAbsolute(prompt.filePath)
+                        ? prompt.filePath
+                        : path.join(PROMPTS_DIR, path.basename(prompt.filePath));
+
+                    if (fs.existsSync(absoluteFilePath)) {
+                        finalContent = fs.readFileSync(absoluteFilePath, "utf-8");
+                    } else {
+                        console.warn(`[WARN] Prompt dosyası bulunamadı: ${absoluteFilePath}`);
+                        finalContent += "\n[HATA: Dosya bulunamadı]";
+                    }
+                } catch (err) {
+                    console.error("Dosya okuma hatası:", err);
+                    finalContent += "\n[HATA: Dosya okunamadı]";
+                }
+            }
 
             // Alt promptları getir (varsa)
-            let result: any = { ...prompt };
+            let result: any = { ...prompt, content: finalContent };
             if (prompt.subPrompts && prompt.subPrompts.length > 0) {
                 result.resolvedSubPrompts = prompt.subPrompts.map((subId: string) => {
                     const subPrompt = prompts.find(p => p.id === subId);
                     if (subPrompt) {
-                        return subPrompt;
+                        return { title: subPrompt.title, id: subPrompt.id }; // Sadece başlık ve ID dönmek yeterli olabilir, içeriği gömmek yerine
                     }
                     return { id: subId, error: "Alt prompt bulunamadı" };
                 });
@@ -176,14 +201,26 @@ app.get("/sse", async (req, res) => {
 
             const newId = (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1");
 
-            // Dosya oluşturma işlemi kaldırıldı.
+            // Dosya ismi oluştur: ID_Title.md (Title'ı sanitize et)
+            const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const fileName = `${newId}_${sanitizedTitle}.md`;
+            const filePath = path.join(PROMPTS_DIR, fileName);
+
+            // İçeriği dosyaya yaz
+            try {
+                fs.writeFileSync(filePath, content, "utf-8");
+            } catch (err) {
+                console.error("Dosya yazma hatası:", err);
+                return { content: [{ type: "text", text: "Dosya oluşturulamadı: " + err }], isError: true };
+            }
 
             const newPrompt: Prompt = {
                 id: newId,
                 title,
-                content, // Content direkt JSON objesine ekleniyor
                 tags: tags || [],
                 subPrompts: subPrompts || [],
+                filePath: fileName // Sadece dosya adını saklıyoruz, path join ile bulunur
+                // content alanını bilerek boş bırakıyoruz veya opsiyonel yapıyoruz
             };
 
             const updatedPrompts = [...prompts, newPrompt];
@@ -192,7 +229,7 @@ app.get("/sse", async (req, res) => {
             return {
                 content: [{
                     type: "text",
-                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}`
+                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}, Dosya: ${fileName}`
                 }]
             };
         }
