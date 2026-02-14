@@ -109,12 +109,12 @@ app.get("/sse", async (req, res) => {
             tools: [
                 {
                     name: "list_prompts",
-                    description: "Mevcut tüm promptları listeler",
+                    description: "Mevcut tüm prompt şablonlarını listeler. Kullanıcı bir şey üretmenizi istediğinde ÖNCE buradan uygun bir şablon seçmelisiniz.",
                     inputSchema: { type: "object", properties: {} }
                 },
                 {
                     name: "get_prompt",
-                    description: "ID ile detaylı prompt içeriğini getirir",
+                    description: "Seçilen bir promptun detaylı içeriğini ve kurallarını getirir. Bu içeriği 'system prompt' veya rehber olarak kullanarak kullanıcının isteğini yerine getirmelisiniz.",
                     inputSchema: {
                         type: "object",
                         properties: { id: { type: "string" } },
@@ -123,12 +123,12 @@ app.get("/sse", async (req, res) => {
                 },
                 {
                     name: "add_prompt",
-                    description: "Yeni bir prompt veya prompt seti ekler",
+                    description: "SADECE YENİ bir prompt şablonunu veritabanına/dosyaya KAYDETMEK içindir. Kullanıcıya cevap üretmek veya hikaye yazmak için BU ARACI KULLANMAYIN. Sadece kullanıcı 'bunu kaydet', 'şablon olarak ekle' dediğinde kullanın.",
                     inputSchema: {
                         type: "object",
                         properties: {
                             title: { type: "string", description: "Prompt başlığı" },
-                            content: { type: "string", description: "Prompt içeriği" },
+                            content: { type: "string", description: "Prompt içeriği (şablon metni)" },
                             tags: { type: "array", items: { type: "string" }, description: "Etiketler" },
                             subPrompts: { type: "array", items: { type: "string" }, description: "Alt prompt ID'leri" }
                         },

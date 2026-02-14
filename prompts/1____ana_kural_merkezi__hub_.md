@@ -1,7 +1,3 @@
----
-trigger: always_on
----
-
 # 🎬 Ana Kural Merkezi (Hub)
 
 > Bu dosya tüm proje türlerinde geçerli **özet kuralları** içerir.
