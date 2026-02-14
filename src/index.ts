@@ -168,14 +168,21 @@ app.get("/sse", async (req, res) => {
     try {
         await server.connect(transport);
         console.log(`[${new Date().toISOString()}] Oturum bağlandı: ${sessionId}`);
+
+        // Heartbeat (Render/SSE canlı tutma)
+        const heartbeatInterval = setInterval(() => {
+            res.write(': keep-alive\n\n');
+        }, 45000); // 45 saniyede bir
+
+        res.on("close", () => {
+            clearInterval(heartbeatInterval);
+            transports.delete(sessionId);
+            console.log(`[${new Date().toISOString()}] Oturum kapandı: ${sessionId}`);
+        });
     } catch (error) {
         console.error(`[${new Date().toISOString()}] Bağlantı hatası (${sessionId}):`, error);
+        res.end();
     }
-
-    res.on("close", () => {
-        transports.delete(sessionId);
-        console.log(`[${new Date().toISOString()}] Oturum kapandı: ${sessionId}`);
-    });
 });
 
 // Mesaj İşleme Noktası

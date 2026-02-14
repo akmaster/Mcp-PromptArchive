@@ -22,33 +22,39 @@ async function main() {
 
     // SSE -> Stdio (Uzakta cevap gelince yerel istemciye ilet)
     sseTransport.onmessage = (message) => {
+        // console.log("SSE -> Stdio:", JSON.stringify(message).substring(0, 100));
         stdioTransport.send(message).catch(err => console.error("Stdio send error:", err));
     };
 
     // Stdio -> SSE (Yerelden istek gelince uzak sunucuya ilet)
     stdioTransport.onmessage = (message) => {
+        // console.log("Stdio -> SSE:", JSON.stringify(message).substring(0, 100));
         sseTransport.send(message).catch(err => console.error("SSE send error:", err));
     };
 
     // Hata yönetimi
     sseTransport.onerror = (error) => {
-        console.error("SSE Transport Error:", error);
-        process.exit(1);
+        console.error(`[${new Date().toISOString()}] SSE Transport Error:`, error);
+        // Hemen kapatma, belki geçicidir veya istemci yeni bir istek atar
+        // process.exit(1); 
     };
 
     stdioTransport.onerror = (error) => {
-        console.error("Stdio Transport Error:", error);
-        process.exit(1);
+        console.error(`[${new Date().toISOString()}] Stdio Transport Error:`, error);
+        // process.exit(1);
     };
 
     // Bağlantıları başlat
     try {
+        console.log(`[${new Date().toISOString()}] Bağlantı başlatılıyor: ${remoteUrl}`);
         await sseTransport.start();
+        console.log(`[${new Date().toISOString()}] SSE bağlantısı başarılı.`);
+
         await stdioTransport.start();
-        // Bridge hazır
+        console.log(`[${new Date().toISOString()}] Stdio (Local) hazır. Bridge aktif.`);
     } catch (error) {
-        console.error("Failed to start bridge:", error);
-        process.exit(1);
+        console.error(`[${new Date().toISOString()}] Bridge başlatılamadı:`, error);
+        process.exit(1); // Sadece başlangıçta hata varsa çıkış yap
     }
 }
 
