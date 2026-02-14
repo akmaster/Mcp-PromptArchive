@@ -15,6 +15,7 @@ interface Prompt {
     title: string;
     content: string;
     tags: string[];
+    subPrompts?: string[]; // Referans verilen diğer prompt ID'leri
 }
 
 function loadPrompts(): Prompt[] {
@@ -25,6 +26,15 @@ function loadPrompts(): Prompt[] {
     } catch (error) {
         console.error("Prompts yükleme hatası:", error);
         return [];
+    }
+}
+
+function savePrompts(prompts: Prompt[]): void {
+    try {
+        const promptsPath = path.join(process.cwd(), "prompts.json");
+        fs.writeFileSync(promptsPath, JSON.stringify(prompts, null, 2), "utf-8");
+    } catch (error) {
+        console.error("Prompts kaydetme hatası:", error);
     }
 }
 
@@ -77,6 +87,20 @@ app.get("/sse", async (req, res) => {
                         properties: { id: { type: "string" } },
                         required: ["id"]
                     }
+                },
+                {
+                    name: "add_prompt",
+                    description: "Yeni bir prompt veya prompt seti ekler",
+                    inputSchema: {
+                        type: "object",
+                        properties: {
+                            title: { type: "string", description: "Prompt başlığı" },
+                            content: { type: "string", description: "Prompt içeriği" },
+                            tags: { type: "array", items: { type: "string" }, description: "Etiketler" },
+                            subPrompts: { type: "array", items: { type: "string" }, description: "Alt prompt ID'leri" }
+                        },
+                        required: ["title", "content"]
+                    }
                 }
             ]
         };
@@ -99,7 +123,42 @@ app.get("/sse", async (req, res) => {
             const id = (args as any)?.id;
             const prompt = prompts.find(p => p.id === id);
             if (!prompt) return { content: [{ type: "text", text: "Prompt bulunamadı" }], isError: true };
-            return { content: [{ type: "text", text: JSON.stringify(prompt, null, 2) }] };
+
+            // Alt promptları getir (varsa)
+            let result: any = { ...prompt };
+            if (prompt.subPrompts && prompt.subPrompts.length > 0) {
+                result.resolvedSubPrompts = prompt.subPrompts.map(subId => {
+                    const subPrompt = prompts.find(p => p.id === subId);
+                    return subPrompt || { id: subId, error: "Alt prompt bulunamadı" };
+                });
+            }
+
+            return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+        }
+
+        if (name === "add_prompt") {
+            const { title, content, tags, subPrompts } = (args as any) || {};
+            if (!title || !content) {
+                return { content: [{ type: "text", text: "Başlık ve içerik zorunludur" }], isError: true };
+            }
+
+            const newPrompt: Prompt = {
+                id: (prompts.length > 0 ? (Math.max(...prompts.map(p => parseInt(p.id))) + 1).toString() : "1"),
+                title,
+                content,
+                tags: tags || [],
+                subPrompts: subPrompts || []
+            };
+
+            const updatedPrompts = [...prompts, newPrompt];
+            savePrompts(updatedPrompts);
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Prompt başarıyla eklendi. ID: ${newPrompt.id}`
+                }]
+            };
         }
 
         throw new Error(`Bilinmeyen araç: ${name}`);
