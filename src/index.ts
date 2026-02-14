@@ -8,6 +8,10 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Veri Katmanı ---
 interface Prompt {
@@ -18,11 +22,17 @@ interface Prompt {
     subPrompts?: string[]; // Referans verilen diğer prompt ID'leri
 }
 
+// Veri dosyası konumu: Çalıştırılan komutun dizininden bağımsız olarak, 
+// projenin kök dizinindeki (src veya dist'in bir üstü) prompts.json'ı hedefler.
+const PROMPTS_PATH = process.env.PROMPTS_PATH || path.join(__dirname, "..", "prompts.json");
+
 function loadPrompts(): Prompt[] {
     try {
-        const promptsPath = path.join(process.cwd(), "prompts.json");
-        if (!fs.existsSync(promptsPath)) return [];
-        return JSON.parse(fs.readFileSync(promptsPath, "utf-8"));
+        if (!fs.existsSync(PROMPTS_PATH)) {
+            console.log(`[${new Date().toISOString()}] prompts.json bulunamadı: ${PROMPTS_PATH}`);
+            return [];
+        }
+        return JSON.parse(fs.readFileSync(PROMPTS_PATH, "utf-8"));
     } catch (error) {
         console.error("Prompts yükleme hatası:", error);
         return [];
@@ -31,8 +41,8 @@ function loadPrompts(): Prompt[] {
 
 function savePrompts(prompts: Prompt[]): void {
     try {
-        const promptsPath = path.join(process.cwd(), "prompts.json");
-        fs.writeFileSync(promptsPath, JSON.stringify(prompts, null, 2), "utf-8");
+        fs.writeFileSync(PROMPTS_PATH, JSON.stringify(prompts, null, 2), "utf-8");
+        console.log(`[${new Date().toISOString()}] Prompts kaydedildi: ${PROMPTS_PATH}`);
     } catch (error) {
         console.error("Prompts kaydetme hatası:", error);
     }
@@ -127,7 +137,7 @@ app.get("/sse", async (req, res) => {
             // Alt promptları getir (varsa)
             let result: any = { ...prompt };
             if (prompt.subPrompts && prompt.subPrompts.length > 0) {
-                result.resolvedSubPrompts = prompt.subPrompts.map(subId => {
+                result.resolvedSubPrompts = prompt.subPrompts.map((subId: string) => {
                     const subPrompt = prompts.find(p => p.id === subId);
                     return subPrompt || { id: subId, error: "Alt prompt bulunamadı" };
                 });
