@@ -169,12 +169,37 @@ app.get("/sse", async (req, res) => {
                     if (fs.existsSync(absoluteFilePath)) {
                         finalContent = fs.readFileSync(absoluteFilePath, "utf-8");
                     } else {
-                        console.warn(`[WARN] Prompt dosyası bulunamadı: ${absoluteFilePath}`);
-                        finalContent += "\n[HATA: Dosya bulunamadı]";
+                        console.warn(`[WARN] Prompt dosyası bulunamadı (Tam Yol): ${absoluteFilePath}`);
+
+                        // FALLBACK: Klasörde benzer isimli dosya ara
+                        try {
+                            const files = fs.readdirSync(PROMPTS_DIR);
+                            const targetName = path.basename(prompt.filePath);
+
+                            // 1. Tam eşleşme ara (bazen path join/resolve farklılık yaratabilir)
+                            let foundFile = files.find(f => f === targetName);
+
+                            // 2. ID ile başlayan dosya ara (ID_...)
+                            if (!foundFile) {
+                                foundFile = files.find(f => f.startsWith(`${prompt.id}_`));
+                            }
+
+                            if (foundFile) {
+                                const fallbackPath = path.join(PROMPTS_DIR, foundFile);
+                                console.log(`[INFO] Fallback dosya bulundu: ${fallbackPath}`);
+                                finalContent = fs.readFileSync(fallbackPath, "utf-8");
+                                // Opsiyonel: Gelecek sefer için prompt.filePath'i güncelle? Şimdilik sadece oku.
+                            } else {
+                                finalContent += `\n[HATA: Dosya bulunamadı. Aranan: ${absoluteFilePath}]`;
+                            }
+                        } catch (searchErr) {
+                            console.error("Fallback arama hatası:", searchErr);
+                            finalContent += `\n[HATA: Dosya bulunamadı ve arama yapılamadı. Aranan: ${absoluteFilePath}]`;
+                        }
                     }
                 } catch (err) {
                     console.error("Dosya okuma hatası:", err);
-                    finalContent += "\n[HATA: Dosya okunamadı]";
+                    finalContent += `\n[HATA: Dosya okunamadı: ${err}]`;
                 }
             }
 
